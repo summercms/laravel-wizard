@@ -43,6 +43,9 @@
         ]
     },
     "extra": {
+        "branch-alias": {
+            "dev-master": "3.x-dev"
+        },
         "laravel": {
             "providers": [
                 "Ycs77\\LaravelWizard\\WizardServiceProvider"
