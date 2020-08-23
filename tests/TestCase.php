@@ -32,15 +32,6 @@ class TestCase extends OrchestraTestCase
      */
     protected function getEnvironmentSetUp($app)
     {
-        // App
-        $app['config']->set('app.debug', true);
-        $app['config']->set('app.key', 'base64:tqASP1YzC4hhdT1nMEc+DFGMRq6WQmfMzYFW522Ce8g=');
-
-        // Database
-        $app['config']->set('database.default', 'sqlite');
-        $app['config']->set('database.connections.sqlite.database', ':memory:');
-
-        // Wizard
         $app['config']->set('wizard', require __DIR__ . '/../config/wizard.php');
     }
 
