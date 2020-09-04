@@ -104,4 +104,8 @@ return [
 
     'table' => 'wizards',
 
+    'temporary_driver' => 'local',
+
+    'temporary_folder' => '.laravel-wizard-tmp',
+
 ];

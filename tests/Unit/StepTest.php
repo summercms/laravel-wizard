@@ -58,7 +58,7 @@ class StepTest extends TestCase
         $this->app['config']->set('wizard.step_view_path', 'steps-dir');
 
         $this->wizard
-            ->shouldReceive('getName')
+            ->shouldReceive('name')
             ->once()
             ->andReturn('user');
 

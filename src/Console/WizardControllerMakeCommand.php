@@ -61,7 +61,7 @@ class WizardControllerMakeCommand extends GeneratorCommand
      */
     protected function buildClass($name)
     {
-        $controllerNamespace = $this->getNamespace($name);
+        $controllerNamespace = $this->namespace($name);
 
         $replace = $this->buildWizardNameReplacement();
 
@@ -106,7 +106,7 @@ class WizardControllerMakeCommand extends GeneratorCommand
         $wizardName = $this->option('wizard');
 
         if (is_null($wizardName)) {
-            $wizardName = $this->getNameInput();
+            $wizardName = $this->nameInput();
 
             if (Str::endsWith($wizardName, 'WizardController')) {
                 $wizardName = Str::replaceLast('WizardController', '', $wizardName);

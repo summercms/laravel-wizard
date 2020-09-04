@@ -1,33 +1,33 @@
 <?php
 
-namespace Ycs77\LaravelWizard\Test\Unit;
+namespace Ycs77\LaravelWizard\Test\Feature\Cache;
 
-use Ycs77\LaravelWizard\SessionStore;
+use Mockery as m;
+use Ycs77\LaravelWizard\Cache\SessionStore;
+use Ycs77\LaravelWizard\Contracts\Cache;
+use Ycs77\LaravelWizard\Test\Stubs\StubWizard;
 use Ycs77\LaravelWizard\Test\TestCase;
 
 class SessionStoreTest extends TestCase
 {
-    /**
-     * The wizard store instance.
-     *
-     * @var \Ycs77\LaravelWizard\SessionStore
-     */
+    /** @var SessionStore */
     protected $cache;
 
     protected function setUp(): void
     {
         parent::setUp();
-
         $this->cache = $this->app->makeWith(SessionStore::class, [
+            'wizard' => $this->app->makeWith(StubWizard::class, [
+                'cache' => m::mock(Cache::class),
+            ]),
             'session' => $this->app['session.store'],
-            'wizardKey' => 'laravel_wizard.test',
         ]);
     }
 
     protected function tearDown(): void
     {
         $this->cache = null;
-
+        m::close();
         parent::tearDown();
     }
 
@@ -36,7 +36,7 @@ class SessionStoreTest extends TestCase
         // arrange
         $expected = ['step' => ['field' => 'data']];
         $this->session([
-            'laravel_wizard.test' => [
+            'wizard:ycs77_test' => [
                 'step' => ['field' => 'data'],
             ],
         ]);
@@ -53,7 +53,7 @@ class SessionStoreTest extends TestCase
         // arrange
         $expected = ['field' => 'data'];
         $this->session([
-            'laravel_wizard.test' => [
+            'wizard:ycs77_test' => [
                 'step' => ['field' => 'data'],
             ],
         ]);
@@ -70,7 +70,7 @@ class SessionStoreTest extends TestCase
         // arrange
         $expected = 'data';
         $this->session([
-            'laravel_wizard.test' => [
+            'wizard:ycs77_test' => [
                 'step' => ['field' => 'data'],
             ],
         ]);
@@ -82,22 +82,6 @@ class SessionStoreTest extends TestCase
         $this->assertEquals($expected, $actual);
     }
 
-    public function testGetLastProcessedIndexData()
-    {
-        // arrange
-        $this->session([
-            'laravel_wizard.test' => [
-                '_last_index' => 0,
-            ],
-        ]);
-
-        // act
-        $actual = $this->cache->getLastProcessedIndex();
-
-        // assert
-        $this->assertEquals(0, $actual);
-    }
-
     public function testSetData()
     {
         // arrange
@@ -107,7 +91,7 @@ class SessionStoreTest extends TestCase
         $this->cache->set(['step' => ['field' => 'data']]);
 
         // assert
-        $this->assertEquals($expected, $this->app['session']->get('laravel_wizard.test'));
+        $this->assertEquals($expected, $this->app['session']->get('wizard:ycs77_test'));
     }
 
     public function testSetDataIncludeLastProcessed()
@@ -122,7 +106,45 @@ class SessionStoreTest extends TestCase
         $this->cache->set(['step' => ['field' => 'data']], 1);
 
         // assert
-        $this->assertEquals($expected, $this->app['session']->get('laravel_wizard.test'));
+        $this->assertEquals($expected, $this->app['session']->get('wizard:ycs77_test'));
+    }
+
+    public function testGetLastProcessedIndexData()
+    {
+        // arrange
+        $this->session([
+            'wizard:ycs77_test' => [
+                '_last_index' => 0,
+            ],
+        ]);
+
+        // act
+        $actual = $this->cache->getLastProcessedIndex();
+
+        // assert
+        $this->assertEquals(0, $actual);
+    }
+
+    public function testSetLastProcessedIndexData()
+    {
+        // arrange
+        $expected = [
+            'step' => ['field' => 'data'],
+            '_last_index' => 1,
+        ];
+
+        $this->session([
+            'wizard:ycs77_test' => [
+                'step' => ['field' => 'data'],
+                '_last_index' => 0,
+            ],
+        ]);
+
+        // act
+        $this->cache->setLastProcessedIndex(1);
+
+        // assert
+        $this->assertEquals($expected, $this->app['session']->get('wizard:ycs77_test'));
     }
 
     public function testPutData()
@@ -134,14 +156,29 @@ class SessionStoreTest extends TestCase
         $this->cache->put('step', ['field' => 'data']);
 
         // assert
-        $this->assertEquals($expected, $this->app['session']->get('laravel_wizard.test'));
+        $this->assertEquals($expected, $this->app['session']->get('wizard:ycs77_test'));
+    }
+
+    public function testOverwriteData()
+    {
+        // arrange
+        $expected = ['step' => ['field' => 'data']];
+        $this->app['session']->put('wizard:ycs77_test', [
+            'step' => ['field' => 'old data'],
+        ]);
+
+        // act
+        $this->cache->put('step', ['field' => 'data']);
+
+        // assert
+        $this->assertEquals($expected, $this->app['session']->get('wizard:ycs77_test'));
     }
 
     public function testCheckHasData()
     {
         // arrange
         $this->session([
-            'laravel_wizard.test' => [
+            'wizard:ycs77_test' => [
                 'step' => ['field' => 'data'],
             ],
         ]);
@@ -156,7 +193,7 @@ class SessionStoreTest extends TestCase
     public function testClearData()
     {
         // arrange
-        $this->app['session']->put('laravel_wizard.test', [
+        $this->app['session']->put('wizard:ycs77_test', [
             'step' => ['field' => 'data'],
         ]);
 
@@ -164,6 +201,6 @@ class SessionStoreTest extends TestCase
         $this->cache->clear();
 
         // assert
-        $this->assertNull($this->app['session']->get('laravel_wizard.test'));
+        $this->assertNull($this->app['session']->get('wizard:ycs77_test'));
     }
 }

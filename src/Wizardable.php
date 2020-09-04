@@ -306,7 +306,7 @@ trait Wizardable
      */
     protected function getWizardStep(Request $request, string $slug = null)
     {
-        /** @var \Ycs77\LaravelWizard\Step|null $step */
+        /** @var Step|null $step */
         if (isset($slug)) {
             $step = $this->wizard()->stepRepo()->find($slug);
         } else {
@@ -391,7 +391,7 @@ trait Wizardable
      */
     protected function save(Request $request)
     {
-        /** @var \Ycs77\LaravelWizard\Step $step */
+        /** @var Step $step */
         foreach ($this->wizard()->stepRepo()->all() as $step) {
             $step->setModel($request);
             $step->saveData($request, $step->data(), $step->getModel());
@@ -411,7 +411,7 @@ trait Wizardable
     protected function wizard()
     {
         if (!$this->wizard) {
-            /** @var \Ycs77\LaravelWizard\WizardFactory $factory */
+            /** @var WizardFactory $factory */
             $factory = app(WizardFactory::class);
 
             $this->wizard = $factory->make(

@@ -2,235 +2,258 @@
 
 namespace Ycs77\LaravelWizard;
 
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Arr;
+use Illuminate\Config\Repository as Config;
+use Illuminate\Contracts\Container\Container;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
+use Ycs77\LaravelWizard\Cache\CacheManager;
+use Ycs77\LaravelWizard\Contracts\Cache;
+use Ycs77\LaravelWizard\Step;
+use Ycs77\LaravelWizard\StepsCollection;
 
-class Wizard
+abstract class Wizard
 {
-    /**
-     * The application instance.
-     *
-     * @var \Illuminate\Foundation\Application
-     */
-    protected $app;
+    /** @var Container */
+    protected $container;
 
-    /**
-     * The wizard cache manager instance.
-     *
-     * @var \Ycs77\LaravelWizard\Contracts\CacheStore
-     */
-    protected $cache;
+    /** @var Config */
+    protected $config;
 
-    /**
-     * The step repository instance.
-     *
-     * @var \Ycs77\LaravelWizard\StepRepository
-     */
-    protected $stepRepo;
+    /** @var StepsCollection */
+    protected $steps;
 
-    /**
-     * The wizard name.
-     *
-     * @var string
-     */
-    protected $name;
-
-    /**
-     * The wizard title.
-     *
-     * @var string
-     */
-    protected $title;
-
-    /**
-     * The wizard options.
-     *
-     * @var array
-     */
-    protected $options = [];
-
-    /**
-     * The wizard options extract key from config.
-     *
-     * @var array
-     */
-    protected $optionsKeys = [
-        'cache',
-        'driver',
-        'connection',
-        'table',
-    ];
-
-    /**
-     * Create a new Wizard instance.
-     *
-     * @param  \Illuminate\Foundation\Application  $app
-     * @param  string  $name
-     * @param  string  $title
-     * @param  array  $options
-     * @return void
-     */
-    public function __construct(Application $app, string $name, string $title, $options = [])
+    public function __construct(Container $container)
     {
-        $this->app = $app;
-        $this->name = $name;
-        $this->title = $title;
-
-        $this->setOptions($options);
+        $this->container = $container;
+        $this->config = $container['config'];
     }
 
     /**
-     * Cache step data to store.
-     *
-     * @param  array  $data
-     * @param  int|null  $nextStepIndex
-     * @return void
+     * The unique name of wizard, format snake case.
      */
-    public function cacheStepData(array $data, $nextStepIndex = null)
+    public function name(): string
     {
-        $this->cache->set($data, $nextStepIndex);
-    }
-
-    /**
-     * Get the next step index.
-     *
-     * @return int|null
-     */
-    public function nextStepIndex()
-    {
-        $nextStepIndex = null;
-
-        if ($nextStep = $this->stepRepo->next()) {
-            $nextStepIndex = $nextStep->index();
+        if (property_exists($this, 'name')) {
+            return $this->name;
         }
 
-        return $nextStepIndex;
+        return Str::snake(class_basename(static::class));
     }
 
-    /**
-     * Get the wizard cache instance.
-     *
-     * @return \Ycs77\LaravelWizard\Contracts\CacheStore
-     */
-    public function cache()
+    public function title(): string
     {
-        return $this->cache;
+        if (property_exists($this, 'title')) {
+            return $this->title;
+        }
+
+        return ucfirst(str_replace('_', ' ', $this->name()));
     }
 
-    /**
-     * Set the wizard cache instance.
-     *
-     * @param  \Ycs77\LaravelWizard\Contracts\CacheStore|null  $cache
-     * @return self
-     */
-    public function setCache($cache = null)
+    abstract protected function steps(): array;
+
+    public function getStep(string $slug): ?Step
     {
-        $this->cache = $cache ?? (new CacheManager($this->app, $this))->driver();
+        return $this->steps->find($slug);
+    }
+
+    public function getCurrentStep(): ?Step
+    {
+        return $this->steps->get($this->getCurrentStepIndex());
+    }
+
+    public function getCurrentStepIndex(): ?int
+    {
+        return $this->steps->currentIndex();
+    }
+
+    public function hasCurrentStepIndex(): bool
+    {
+        return is_int($this->getCurrentStepIndex());
+    }
+
+    public function getCurrentStepWithDefault(): Step
+    {
+        return $this->steps->get($this->getCurrentStepIndexWithDefault());
+    }
+
+    public function getCurrentStepIndexWithDefault(): int
+    {
+        return $this->getCurrentStepIndex() ?? 0;
+    }
+
+    public function setCurrentStep(Step $step): self
+    {
+        $this->steps->setCurrent($step);
 
         return $this;
     }
 
-    /**
-     * Get the step repository instance.
-     *
-     * @return \Ycs77\LaravelWizard\StepRepository
-     */
-    public function stepRepo()
+    public function getPrevStep(): ?Step
     {
-        return $this->stepRepo;
+        return $this->steps->prev();
+    }
+
+    public function getNextStep(): ?Step
+    {
+        return $this->steps->next();
+    }
+
+    public function hasPrevStep(): bool
+    {
+        return $this->steps->hasPrev();
+    }
+
+    public function hasNextStep(): bool
+    {
+        return $this->steps->hasNext();
     }
 
     /**
-     * Set the step repository instance.
-     *
-     * @param  \Ycs77\LaravelWizard\StepRepository|null  $stepRepo
-     * @return self
+     * @param  Step|string|null  $step
      */
-    public function setStepRepo($stepRepo = null)
+    public function isCurrentStep($step = null): bool
     {
-        $this->stepRepo = $stepRepo ?? new StepRepository($this);
+        if ($this->hasCurrentStepIndex()) {
+            if ($step instanceof Step) {
+                $stepIndex = $step->index();
+            } elseif (is_string($step)) {
+                $stepIndex = optional($this->getStep($step))->index();
+            }
+
+            return $step ? $this->getCurrentStepIndex() === $stepIndex : false;
+        }
+
+        return true;
+    }
+
+    public function isLastStep(): bool
+    {
+        return $this->isCurrentStep($this->steps->last());
+    }
+
+    public function needRedirectToCorrectStep(string $step = null): bool
+    {
+        return is_null($step) ||
+            ($this->hasCurrentStepIndex() &&
+            $this->getStep($step) &&
+            ! $this->isCurrentStep($step));
+    }
+
+    // /**
+    //  * @throws \Ycs77\LaravelWizard\Exceptions\StepNotFoundException
+    //  */
+    // public function isValidStep(Step $currentStep = null, string $controller)
+    // {
+    //     if (is_null($currentStep)) {
+    //         throw new StepNotFoundException(
+    //             $currentStep, $this, $controller
+    //         );
+    //     }
+    // }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
+    public function saveStepData(string $step, Request $request)
+    {
+        if ($this->steps->hasCache()) {
+            $nextIndex = optional($this->getNextStep())->index();
+
+            $this->steps->cacheData(
+                $step, null, $this->getData($request), $nextIndex
+            );
+        } else {
+            $this->saveStep(
+                $this->getCurrentStep(), $this->getData($request)
+            );
+        }
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
+    public function saveStepsData(Request $request)
+    {
+        //
+
+        $this->steps->clearCache();
+    }
+
+    public function isLastStep(): bool
+    {
+        return $this->getCurrentStepIndexWithDefault() === optional($this->steps->last())->index();
+    }
+
+    // /**
+    //  * @throws \Ycs77\LaravelWizard\Exceptions\StepNotFoundException
+    //  */
+    // public function isValidStep(Step $currentStep = null, string $controller)
+    // {
+    //     if (is_null($currentStep)) {
+    //         throw new StepNotFoundException(
+    //             $currentStep, $this, $controller
+    //         );
+    //     }
+    // }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
+    protected function saveStep(Step $step, array $data)
+    {
+        if (! method_exists($step, 'save')) {
+            throw new InvalidArgumentException(sprintf(
+                'Method %s does not exist.', 'save'
+            ));
+        }
+
+        $this->container->call([$step, 'save'], compact('data'));
+    }
+
+    public function getData(Request $request)
+    {
+        return array_filter($request->all(), function ($input) {
+            return ! Str::startsWith($input, '_');
+        });
+    }
+
+    public function newCache(): Cache
+    {
+        return (new CacheManager($this->container, $this))->driver();
+    }
+
+    public function newSteps()
+    {
+        return new StepsCollection($this);
+    }
+
+    public function createSteps()
+    {
+        if (empty($steps = $this->steps())) {
+            throw new InvalidArgumentException(sprintf(
+                'Wizard [%s] does not contain any steps.', class_basename(static::class)
+            ));
+        }
+
+        $stepsCollection = $this->newSteps();
+
+        if ($this->config['wizard.cache']) {
+            $stepsCollection->setCache($this->newCache());
+        }
+
+        return $stepsCollection->pushMany($steps);
+    }
+
+    public function getSteps(): StepsCollection
+    {
+        return $this->steps;
+    }
+
+    public function setSteps(StepsCollection $steps = null)
+    {
+        $this->steps = $steps ?? $this->createSteps();
 
         return $this;
-    }
-
-    /**
-     * Get the wizard options.
-     *
-     * @return array
-     */
-    public function getOptions()
-    {
-        return $this->options;
-    }
-
-    /**
-     * Get the wizard option.
-     *
-     * @param  string  $key
-     * @return mixed
-     */
-    public function option(string $key)
-    {
-        return $this->options[$key] ?? null;
-    }
-
-    /**
-     * Get the wizard options.
-     *
-     * @param  array  $options
-     * @return self
-     */
-    public function setOptions(array $options = [])
-    {
-        $config = Arr::only(
-            $this->app['config']['wizard'],
-            $this->optionsKeys
-        );
-
-        $this->options = array_merge($config, $options);
-
-        return $this;
-    }
-
-    /**
-     * Get the application instance.
-     *
-     * @return  \Illuminate\Foundation\Application
-     */
-    public function getApp()
-    {
-        return $this->app;
-    }
-
-    /**
-     * Get the wizard name.
-     *
-     * @return  string
-     */
-    public function getName()
-    {
-        return $this->name;
-    }
-
-    /**
-     * Get the wizard title.
-     *
-     * @return  string
-     */
-    public function getTitle()
-    {
-        return $this->title;
-    }
-
-    /**
-     * Handle dynamic method calls into the wizard.
-     *
-     * @param  string  $method
-     * @param  array  $parameters
-     * @return mixed
-     */
-    public function __call($method, $parameters)
-    {
-        return $this->stepRepo->$method(...$parameters);
     }
 }

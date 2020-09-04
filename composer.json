@@ -32,7 +32,10 @@
     "autoload": {
         "psr-4": {
             "Ycs77\\LaravelWizard\\": "src"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -57,5 +60,7 @@
     },
     "config": {
         "sort-packages": true
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }

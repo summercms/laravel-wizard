@@ -1,6 +1,6 @@
 <?php
 
-namespace Ycs77\LaravelWizard;
+namespace Ycs77\LaravelWizard\Old;
 
 use Illuminate\Support\Collection;
 use Ycs77\LaravelWizard\Contracts\StepRepository as StepRepositoryContract;

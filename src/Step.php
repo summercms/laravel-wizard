@@ -3,272 +3,124 @@
 namespace Ycs77\LaravelWizard;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Ycs77\LaravelWizard\Wizard;
 
 abstract class Step
 {
-    /**
-     * The wizard instance.
-     *
-     * @var \Ycs77\LaravelWizard\Wizard
-     */
+    /** @var Wizard */
     protected $wizard;
 
-    /**
-     * The step model instance or the relationships instance.
-     *
-     * @var \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null
-     */
-    protected $model;
-
-    /**
-     * The step index.
-     *
-     * @var int
-     */
+    /** @var int */
     protected $index;
 
-    /**
-     * The step slug.
-     *
-     * @var string
-     */
-    protected $slug;
+    /** @var \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null */
+    protected $model;
 
-    /**
-     * The step show label text.
-     *
-     * @var string
-     */
-    protected $label;
+    /** @var array */
+    protected $exceptInputs = [];
 
-    /**
-     * The step form view path.
-     *
-     * @var string
-     */
-    protected $view;
-
-    /**
-     * The request input except input data.
-     *
-     * @var array
-     */
-    protected $inputExcept = ['_token', '_method', '_trigger'];
-
-    /**
-     * Create a new step instance.
-     *
-     * @param  \Ycs77\LaravelWizard\Wizard  $wizard
-     * @param  int  $index
-     * @return void
-     */
     public function __construct(Wizard $wizard, int $index)
     {
         $this->wizard = $wizard;
         $this->index = $index;
     }
 
-    /**
-     * Get the step index.
-     *
-     * @return int
-     */
-    public function index()
+    public function slug(): string
+    {
+        if (property_exists($this, 'slug')) {
+            return $this->slug;
+        }
+
+        return Str::kebab(class_basename(static::class));
+    }
+
+    public function index(): int
     {
         return $this->index;
     }
 
-    /**
-     * Get the step number.
-     *
-     * @return int
-     */
-    public function number()
+    public function number(): int
     {
         return $this->index + 1;
     }
 
-    /**
-     * Get the step slug.
-     *
-     * @return string
-     */
-    public function slug()
+    public function label(): string
     {
-        return $this->slug;
+        if (property_exists($this, 'label')) {
+            return $this->label;
+        }
+
+        return ucfirst(str_replace('-', ' ', Str::snake($this->slug())));
     }
 
-    /**
-     * Get the step show label text.
-     *
-     * @return string
-     */
-    public function label()
+    public function data($key = '')
     {
-        return $this->label;
+        return $this->wizard->getSteps()->data($this->slug(), $key);
     }
 
-    /**
-     * Get the step form view path.
-     *
-     * @return string
-     */
-    public function view()
+    // public function init(Request $request)
+    // {
+    //     $this->setModel($request);
+
+    //     return $this;
+    // }
+
+    // /**
+    //  * Get the step model instance or the relationships instance.
+    //  *
+    //  * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null
+    //  */
+    // public function getModel()
+    // {
+    //     return $this->model;
+    // }
+
+    // /**
+    //  * Set the step model instance or the relationships instance.
+    //  */
+    // public function setModel(Request $request)
+    // {
+    //     $this->model = $this->model($request);
+
+    //     return $this;
+    // }
+
+    // /**
+    //  * Set the step model instance or the relationships instance.
+    //  *
+    //  * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null
+    //  */
+    // abstract public function model(Request $request);
+
+    // /**
+    //  * Save this step form data.
+    //  *
+    //  * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null  $model
+    //  */
+    // abstract public function save(Request $request, array $data = null, $model = null);
+
+    public function view(): string
     {
-        if ($this->view) {
+        if (property_exists($this, 'view')) {
             return $this->view;
         }
 
-        return config('wizard.step_view_path') . ".{$this->wizard->getName()}.{$this->slug}";
+        return config('wizard.step_view_path').".{$this->wizard->name()}.{$this->slug()}";
     }
 
-    /**
-     * Get the step belongs wizard.
-     *
-     * @return \Ycs77\LaravelWizard\Wizard
-     */
-    public function getWizard()
-    {
-        return $this->wizard;
-    }
-
-    /**
-     * Get the step repository.
-     *
-     * @return \Ycs77\LaravelWizard\StepRepository
-     */
-    public function getRepo()
-    {
-        return $this->wizard->stepRepo();
-    }
-
-    /**
-     * Get the step model instance or the relationships instance.
-     *
-     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null
-     */
-    public function getModel()
-    {
-        return $this->model;
-    }
-
-    /**
-     * Set the step model instance or the relationships instance.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return void
-     */
-    public function setModel(Request $request)
-    {
-        $this->model = $this->model($request);
-    }
-
-    /**
-     * Set the step model instance or the relationships instance.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null
-     */
-    public function model(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Save this step form data.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  array|null  $data
-     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation|null  $model
-     * @return void
-     */
-    abstract public function saveData(Request $request, $data = null, $model = null);
-
-    /**
-     * Validation rules.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return array
-     */
-    public function rules(Request $request)
+    public function rules(Request $request): array
     {
         return [];
     }
 
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return array
-     */
-    public function validateMessages(Request $request)
+    public function validateMessages(Request $request): array
     {
         return [];
     }
 
-    /**
-     * Get custom attributes for validator errors.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return array
-     */
-    public function validateAttributes(Request $request)
+    public function validateAttributes(Request $request): array
     {
         return [];
-    }
-
-    /**
-     * Get request input data.
-     *
-     * @param  Request  $request
-     * @return array
-     */
-    public function getRequestData(Request $request)
-    {
-        return $request->except($this->inputExcept);
-    }
-
-    /**
-     * Get step cache data.
-     *
-     * @param  string  $key
-     * @return array|string|null
-     */
-    public function data($key = '')
-    {
-        return $this->wizard->cache()->get($this->getDataKey($key));
-    }
-
-    /**
-     * Get step data key.
-     *
-     * @param  string  $key
-     * @return string
-     */
-    public function getDataKey($key = '')
-    {
-        return collect([$this->slug, $key])->filter()->implode('.');
-    }
-
-    /**
-     * Cache progress data.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  array  $additionalData
-     * @return array
-     */
-    public function cacheProgress(Request $request, array $additionalData = [])
-    {
-        // Get cache data, and push this step data.
-        $cacheData = $this->wizard->cache()->get();
-        $cacheData[$this->slug] = $this->getRequestData($request);
-        $cacheData = array_merge($cacheData, $additionalData);
-
-        $nextStepIndex = $this->wizard->nextStepIndex();
-
-        // Save data to cache.
-        $this->wizard->cacheStepData($cacheData, $nextStepIndex);
-
-        return $this->wizard->cache()->get();
     }
 }

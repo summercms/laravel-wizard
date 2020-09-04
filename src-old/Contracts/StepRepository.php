@@ -1,6 +1,6 @@
 <?php
 
-namespace Ycs77\LaravelWizard\Contracts;
+namespace Ycs77\LaravelWizard\Old\Contracts;
 
 interface StepRepository
 {

@@ -136,7 +136,7 @@ EOT
      */
     protected function getStepName()
     {
-        $step = class_basename($this->getNameInput());
+        $step = class_basename($this->nameInput());
 
         if (Str::endsWith($step, 'Step')) {
             $step = str_replace('Step', '', $step);

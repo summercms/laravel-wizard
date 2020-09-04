@@ -33,6 +33,7 @@ class CreateWizardTestTables extends Migration
 
         Schema::create('wizards', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->string('wizard');
             $table->unsignedBigInteger('user_id')->nullable();
             $table->ipAddress('ip_address')->nullable();
             $table->longText('payload');

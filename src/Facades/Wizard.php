@@ -42,7 +42,7 @@ class Wizard extends Facade
             'use_done' => true,
         ], $options);
 
-        /** @var \Illuminate\Routing\Router $router */
+        /** @var Router $router */
         $router = static::$app['router'];
 
         if ($options['use_done']) {
